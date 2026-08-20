@@ -1,7 +1,11 @@
 {
   "name": "@dekaruntime/web-ide-kit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dekaruntime/web-ide-kit.git"
+  },
   "exports": {
     "./runtime": {
       "types": "./dist/runtime/index.d.ts",
