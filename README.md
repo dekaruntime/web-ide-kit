@@ -2,23 +2,17 @@
 
 Shared runtime, editor, and UI components for DekaScript web IDEs.
 
-This package is consumed as a git submodule so it never needs to be published to npm.
+Published to npm as `@dekaruntime/web-ide-kit`.
 
 ## Usage
 
-Add the submodule in a consumer repo:
+Install from npm:
 
 ```bash
-git submodule add https://github.com/dekaruntime/web-ide-kit.git vendor/web-ide-kit
+bun add @dekaruntime/web-ide-kit
 ```
 
-Reference it from `package.json`:
-
-```json
-"@dekaruntime/web-ide-kit": "file:./vendor/web-ide-kit"
-```
-
-Add it to `transpilePackages` in `next.config.ts`:
+If you are using Next.js, keep it in `transpilePackages` so JSX is processed correctly:
 
 ```ts
 transpilePackages: ['@dekaruntime/web-ide-kit'],
