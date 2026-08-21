@@ -27,6 +27,12 @@ export {
 } from './sandbox';
 export { formatDiagnostic } from './diagnostic-format';
 export {
+  compileDekaProject,
+  runDekaProject,
+  type CompileProjectResult,
+  type RunProjectResult,
+} from './modules';
+export {
   DEKA_COMPILER_MIN_ABI_VERSION,
   type CompilerArtifactManifest,
   validateCompilerArtifactManifest,

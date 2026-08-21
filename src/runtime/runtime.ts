@@ -54,7 +54,7 @@ export interface RunResult {
 
 export type { SandboxRunResult };
 
-interface WasmExports {
+export interface WasmExports {
   memory: WebAssembly.Memory;
   deka_compiler_alloc: (size: number) => number;
   deka_compiler_free: (ptr: number, size: number) => void;
@@ -68,9 +68,20 @@ interface WasmExports {
   ) => number;
   deka_compiler_format_js: (sourcePtr: number, sourceLen: number) => number;
   deka_compiler_format_ds: (sourcePtr: number, sourceLen: number) => number;
+  deka_compiler_project_new: () => number;
+  deka_compiler_project_free: (projectId: number) => void;
+  deka_compiler_project_write: (
+    projectId: number,
+    pathPtr: number,
+    pathLen: number,
+    sourcePtr: number,
+    sourceLen: number
+  ) => void;
+  deka_compiler_project_compile: (projectId: number) => number;
+  deka_compiler_project_read: (projectId: number, pathPtr: number, pathLen: number) => number;
 }
 
-interface WasmCompiler {
+export interface WasmCompiler {
   exports: WasmExports;
   compiler?: CompilerArtifactManifest['compiler'];
 }
@@ -136,7 +147,7 @@ async function loadDekaCompiler(): Promise<WasmCompiler> {
   return { exports: instance.exports as unknown as WasmExports, compiler: manifest.compiler };
 }
 
-function getDekaCompiler(): Promise<WasmCompiler> {
+export function getDekaCompiler(): Promise<WasmCompiler> {
   compilerPromise ??= loadDekaCompiler();
   return compilerPromise;
 }
