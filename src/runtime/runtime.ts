@@ -349,6 +349,7 @@ function compileWithDekaAbi(
 function stripModuleMetadata(jsCode: string): string {
   return jsCode
     .replace(/^export const \w+ = [^;]+;\n?/gm, '')
+    .replace(/^export \{[\s\S]*?\};\n?/gm, '')
     .replace(/^export async function \w+[\s\S]*$/m, '')
     .replace(/^import .*component\/core.*;\n?/m, '');
 }
