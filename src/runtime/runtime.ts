@@ -123,6 +123,19 @@ async function sha256(bytes: ArrayBuffer): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function getCompilerBaseUrl(): string | URL {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  // Non-browser environments (e.g. Bun/Node build scripts) pass an absolute URL
+  // via setCompilerArtifactPath. Fall back to the configured path itself so the
+  // relative artifact file resolves against the manifest URL.
+  if (dekaCompilerArtifactPath.startsWith('http://') || dekaCompilerArtifactPath.startsWith('https://')) {
+    return dekaCompilerArtifactPath;
+  }
+  throw new Error('Deka compiler artifact path must be absolute when running outside a browser');
+}
+
 async function loadDekaCompiler(): Promise<WasmCompiler> {
   const manifestResponse = await fetch(dekaCompilerArtifactPath, { cache: 'no-cache' });
   if (!manifestResponse.ok) {
@@ -130,7 +143,7 @@ async function loadDekaCompiler(): Promise<WasmCompiler> {
   }
 
   const manifest = validateCompilerArtifactManifest(await manifestResponse.json());
-  const wasmUrl = new URL(manifest.artifact.file, new URL(dekaCompilerArtifactPath, window.location.origin));
+  const wasmUrl = new URL(manifest.artifact.file, new URL(dekaCompilerArtifactPath, getCompilerBaseUrl()));
   const wasmResponse = await fetch(wasmUrl);
   if (!wasmResponse.ok) {
     throw new Error(`Failed to fetch Deka compiler: ${wasmResponse.status} ${wasmResponse.statusText}`);
