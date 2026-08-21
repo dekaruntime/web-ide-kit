@@ -908,6 +908,16 @@ function createGlobals(options) {
 
     deka,
 
+    Option: Object.freeze({
+      Some: (value) => Object.freeze({ __enum: "Option", __case: "Some", value }),
+      None: Object.freeze({ __enum: "Option", __case: "None" }),
+    }),
+
+    Result: Object.freeze({
+      Ok: (value) => Object.freeze({ __enum: "Result", __case: "Ok", value }),
+      Err: (error) => Object.freeze({ __enum: "Result", __case: "Err", error }),
+    }),
+
     unsafe: unsafeGlobals,
 
     fetch: safeFetch,
