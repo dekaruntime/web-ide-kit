@@ -164,11 +164,11 @@ export function ensureMonacoLoaded() {
   window.monacoLoading = true;
 
   const loaderScript = document.createElement('script');
-  loaderScript.src = 'https://unpkg.com/monaco-editor@latest/min/vs/loader.js';
+  loaderScript.src = '/monaco-editor/min/vs/loader.js';
 
   loaderScript.onload = () => {
     window.require.config({
-      paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' }
+      paths: { vs: '/monaco-editor/min/vs' }
     });
 
     window.require(['vs/editor/editor.main'], () => {
