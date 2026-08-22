@@ -969,8 +969,13 @@ self.onmessage = async (event) => {
   const allKeys = Object.keys(globals);
   const values = Object.values(globals);
   const READ_ONLY_GLOBALS = new Set(['crypto']);
+  // The compiler now emits Result, Option, Ok, Err, Some and None as local
+  // prelude consts inside the generated IIFE. Installing them as globals here
+  // would reference them before their const declarations and hit the temporal
+  // dead zone in strict mode, so exclude them from global installs.
+  const COMPILER_EMITTED_PRELUDE = new Set(['Result', 'Option', 'Ok', 'Err', 'Some', 'None']);
   const globalInstalls = allKeys
-    .filter((key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && key !== 'deka')
+    .filter((key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && key !== 'deka' && !COMPILER_EMITTED_PRELUDE.has(key))
     .map((key) => 'globalThis.' + key + ' = ' + key + ';')
     .join('\\n');
 

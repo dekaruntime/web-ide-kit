@@ -480,7 +480,14 @@ export async function runDekaJsDirect(
   const localKeys = allKeys;
   const localValues = localKeys.map((key) => globals[key]);
   const READ_ONLY_GLOBALS = new Set(['crypto']);
-  const installedKeys = allKeys.filter((key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key));
+  // The compiler now emits Result, Option, Ok, Err, Some and None as local
+  // prelude consts inside the generated IIFE. Installing them as globals here
+  // would reference them before their const declarations and hit the temporal
+  // dead zone in strict mode, so exclude them from global installs.
+  const COMPILER_EMITTED_PRELUDE = new Set(['Result', 'Option', 'Ok', 'Err', 'Some', 'None']);
+  const installedKeys = allKeys.filter(
+    (key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && !COMPILER_EMITTED_PRELUDE.has(key)
+  );
   const hostGlobals = globalThis as Record<string, unknown>;
   const previousGlobals = new Map(
     installedKeys.map((key) => [key, { exists: key in hostGlobals, value: hostGlobals[key] }])
