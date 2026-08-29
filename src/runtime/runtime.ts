@@ -351,7 +351,11 @@ function stripModuleMetadata(jsCode: string): string {
     .replace(/^export const \w+ = [^;]+;\n?/gm, '')
     .replace(/^export \{[\s\S]*?\};\n?/gm, '')
     .replace(/^export async function \w+[\s\S]*$/m, '')
-    .replace(/^import .*component\/core.*;\n?/m, '');
+    .replace(/^import .*component\/core.*;\n?/m, '')
+    .replace(
+      /^import\s+\{\s*echo\s*\}\s+from\s+["']io["'];?\n?/m,
+      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };\n'
+    );
 }
 
 /**
