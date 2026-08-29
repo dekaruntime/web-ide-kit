@@ -12,7 +12,8 @@ interface PendingRun {
 
 const RUN_TIMEOUT_MS = 5000;
 
-const WORKER_SCRIPT = `
+/** @internal Exported only for build-time regression tests. */
+export const WORKER_SCRIPT = `
 function normalizePath(path) {
   return String(path || '').replace(/\\\\/g, '/').replace(/\\/+/g, '/');
 }
@@ -965,8 +966,8 @@ self.onmessage = async (event) => {
     .replace(/^export async function \\w+[\\s\\S]*$/m, '')
     .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
     .replace(
-      /^import[ \t]+\{[ \t]*echo[ \t]*\}[ \t]+from[ \t]+["']io["'];?[ \t]*$/m,
-      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };\n'
+      /^import[ \\t]+\\{[ \\t]*echo[ \\t]*\\}[ \\t]+from[ \\t]+["']io["'];?[ \\t]*$/m,
+      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };'
     );
 
   const globals = createGlobals({ cwd, env, fs });

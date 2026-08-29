@@ -1,6 +1,6 @@
 {
   "name": "@dekaruntime/web-ide-kit",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "type": "module",
   "repository": {
     "type": "git",
@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "copy-monaco": "node bin/copy-monaco-assets.mjs",
+    "test": "bun check-worker.mjs",
     "prepublishOnly": "bun run build"
   },
   "peerDependencies": {
