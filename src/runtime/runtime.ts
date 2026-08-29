@@ -361,12 +361,74 @@ function compileWithDekaAbi(
   };
 }
 
+/**
+ * Convert static ESM imports to dynamic `await import()` calls.
+ *
+ * The direct runner and the Worker sandbox execute compiled JS through
+ * `new Function()`, which does not allow static import statements. Bare and
+ * absolute specifiers emitted when `moduleBase` is set must be loaded
+ * dynamically inside the async IIFE wrapper.
+ */
+function transformStaticImportsToDynamic(jsCode: string): string {
+  return jsCode
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      const leadingWhitespace = line.match(/^\s*/)?.[0] ?? '';
+
+      // Side-effect import: import "spec";
+      const sideEffectMatch = trimmed.match(/^import\s+["']([^"']+)["']\s*;?$/);
+      if (sideEffectMatch) {
+        return `${leadingWhitespace}await import("${sideEffectMatch[1]}");`;
+      }
+
+      // Named import: import { a, b as c } from "spec";
+      const namedMatch = trimmed.match(/^import\s*\{\s*(.*?)\s*\}\s*from\s*["']([^"']+)["']\s*;?$/);
+      if (namedMatch) {
+        const specifiers = namedMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+        const mapped = specifiers.map((spec) => {
+          const aliasMatch = spec.match(/^(\w+)\s+as\s+(\w+)$/);
+          if (aliasMatch) {
+            return `${aliasMatch[1]}: ${aliasMatch[2]}`;
+          }
+          return spec;
+        });
+        return `${leadingWhitespace}const { ${mapped.join(', ')} } = await import("${namedMatch[2]}");`;
+      }
+
+      // Namespace import: import * as mod from "spec";
+      const namespaceMatch = trimmed.match(/^import\s*\*\s*as\s+(\w+)\s+from\s*["']([^"']+)["']\s*;?$/);
+      if (namespaceMatch) {
+        return `${leadingWhitespace}const ${namespaceMatch[1]} = await import("${namespaceMatch[2]}");`;
+      }
+
+      // Default import: import name from "spec";
+      const defaultMatch = trimmed.match(/^import\s+(\w+)\s+from\s*["']([^"']+)["']\s*;?$/);
+      if (defaultMatch) {
+        return `${leadingWhitespace}const { default: ${defaultMatch[1]} } = await import("${defaultMatch[2]}");`;
+      }
+
+      return line;
+    })
+    .join('\n');
+}
+
 function stripModuleMetadata(jsCode: string): string {
   return jsCode
     .replace(/^export const \w+ = [^;]+;\n?/gm, '')
     .replace(/^export \{[\s\S]*?\};\n?/gm, '')
     .replace(/^export async function \w+[\s\S]*$/m, '')
     .replace(/^import .*component\/core.*;\n?/m, '');
+}
+
+/**
+ * Prepare emitted JS for execution in a `new Function()` sandbox.
+ *
+ * Strips build-only module metadata and rewrites static imports to dynamic
+ * imports so the Worker/direct runner can resolve them.
+ */
+function prepareExecutableJs(jsCode: string): string {
+  return transformStaticImportsToDynamic(stripModuleMetadata(jsCode));
 }
 
 /**
@@ -488,7 +550,7 @@ export async function runDekaJsDirect(
   });
 
   const allKeys = Object.keys(globals);
-  const executable = stripModuleMetadata(jsCode);
+  const executable = prepareExecutableJs(jsCode);
 
   // Pass every supplied global as a function parameter so generated code uses
   // the captured console and process rather than the host environment.
