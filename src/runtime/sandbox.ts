@@ -956,19 +956,57 @@ function createGlobals(options) {
   };
 }
 
+function transformStaticImportsToDynamic(jsCode) {
+  return jsCode
+    .split('\\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      const leadingWhitespace = line.match(/^\\s*/)?.[0] ?? '';
+
+      const sideEffectMatch = trimmed.match(/^import\\s+["']([^"']+)["']\\s*;?$/);
+      if (sideEffectMatch) {
+        return leadingWhitespace + 'await import("' + sideEffectMatch[1] + '");';
+      }
+
+      const namedMatch = trimmed.match(/^import\\s*\\{\\s*(.*?)\\s*\\}\\s*from\\s*["']([^"']+)["']\\s*;?$/);
+      if (namedMatch) {
+        const specifiers = namedMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+        const mapped = specifiers.map((spec) => {
+          const aliasMatch = spec.match(/^(\\w+)\\s+as\\s+(\\w+)$/);
+          if (aliasMatch) {
+            return aliasMatch[1] + ': ' + aliasMatch[2];
+          }
+          return spec;
+        });
+        return leadingWhitespace + 'const { ' + mapped.join(', ') + ' } = await import("' + namedMatch[2] + '");';
+      }
+
+      const namespaceMatch = trimmed.match(/^import\\s*\\*\\s*as\\s+(\\w+)\\s+from\\s*["']([^"']+)["']\\s*;?$/);
+      if (namespaceMatch) {
+        return leadingWhitespace + 'const ' + namespaceMatch[1] + ' = await import("' + namespaceMatch[2] + '");';
+      }
+
+      const defaultMatch = trimmed.match(/^import\\s+(\\w+)\\s+from\\s*["']([^"']+)["']\\s*;?$/);
+      if (defaultMatch) {
+        return leadingWhitespace + 'const { default: ' + defaultMatch[1] + ' } = await import("' + defaultMatch[2] + '");';
+      }
+
+      return line;
+    })
+    .join('\\n');
+}
+
 self.onmessage = async (event) => {
   const { id, jsCode, cwd, env, fs } = event.data || {};
   self.__dekaStdout = [];
   self.__dekaStderr = [];
 
-  const executable = String(jsCode)
-    .replace(/^export const \\w+ = [^;]+;\\n?/gm, '')
-    .replace(/^export async function \\w+[\\s\\S]*$/m, '')
-    .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
-    .replace(
-      /^import[ \\t]+\\{[ \\t]*echo[ \\t]*\\}[ \\t]+from[ \\t]+["']io["'];?[ \\t]*$/m,
-      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };'
-    );
+  const executable = transformStaticImportsToDynamic(
+    String(jsCode)
+      .replace(/^export const \\w+ = [^;]+;\\n?/gm, '')
+      .replace(/^export async function \\w+[\\s\\S]*$/m, '')
+      .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
+  );
 
   const globals = createGlobals({ cwd, env, fs });
   const allKeys = Object.keys(globals);
