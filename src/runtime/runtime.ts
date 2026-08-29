@@ -450,12 +450,37 @@ const RAW_USER_CODE_MARKER = '// --- deka:user-code ---';
  * split on it directly. Older compilers (and any prelude variants that predate
  * the marker) fall back to the heuristic pattern matcher.
  */
-export function formatRawJs(jsCode: string): string {
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function rewriteModuleSpecifiers(jsCode: string, moduleBase: string): string {
+  const base = moduleBase.replace(/\/+$/, '');
+  const re = new RegExp(`(['"])${escapeRegExp(base)}/([^'"\\s;]+)\\.mjs\\1`, 'g');
+  return jsCode.replace(re, '$1$2$1');
+}
+
+function stripUseStrict(jsCode: string): string {
+  return jsCode.replace(/^\s*["']use strict["'];?\r?\n?/, '');
+}
+
+export function formatRawJs(
+  jsCode: string,
+  options?: { moduleBase?: string },
+): string {
+  const postProcess = (raw: string): string => {
+    let cleaned = stripUseStrict(raw);
+    if (options?.moduleBase) {
+      cleaned = rewriteModuleSpecifiers(cleaned, options.moduleBase);
+    }
+    return cleaned;
+  };
+
   const markerIndex = jsCode.indexOf(RAW_USER_CODE_MARKER);
   if (markerIndex !== -1) {
     const afterMarker = jsCode.slice(markerIndex + RAW_USER_CODE_MARKER.length);
-    const trimmed = afterMarker.replace(/^\n+/, '');
-    return trimmed.replace(/\n+$/, '');
+    const trimmed = afterMarker.replace(/^\n+/, '').replace(/\n+$/, '');
+    return postProcess(trimmed);
   }
 
   const lines = jsCode.split('\n');
@@ -522,7 +547,7 @@ export function formatRawJs(jsCode: string): string {
   while (kept.length > 0 && kept[kept.length - 1].trim() === '') {
     kept.pop();
   }
-  return kept.join('\n');
+  return postProcess(kept.join('\n'));
 }
 
 /**
