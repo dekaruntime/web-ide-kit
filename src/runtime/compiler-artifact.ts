@@ -1,7 +1,7 @@
 // Minimum ABI version the website requires. The pinned artifact in public/tour
 // is kept current by scripts/sync-deka-wasm-from-r2.ts; we gate on
 // backwards-compatible ABI, not a specific source revision.
-export const DEKA_COMPILER_MIN_ABI_VERSION = 1;
+export const DEKA_COMPILER_MIN_ABI_VERSION = 2;
 
 export interface CompilerArtifactManifest {
   schemaVersion: 1;

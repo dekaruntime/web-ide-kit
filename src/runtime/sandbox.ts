@@ -964,11 +964,7 @@ self.onmessage = async (event) => {
   const executable = String(jsCode)
     .replace(/^export const \\w+ = [^;]+;\\n?/gm, '')
     .replace(/^export async function \\w+[\\s\\S]*$/m, '')
-    .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
-    .replace(
-      /^import[ \\t]+\\{[ \\t]*echo[ \\t]*\\}[ \\t]+from[ \\t]+["']io["'];?[ \\t]*$/m,
-      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };'
-    );
+    .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '');
 
   const globals = createGlobals({ cwd, env, fs });
   const allKeys = Object.keys(globals);

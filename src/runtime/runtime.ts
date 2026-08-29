@@ -54,17 +54,28 @@ export interface RunResult {
 
 export type { SandboxRunResult };
 
+export interface CompileOptions {
+  /** Base URL/path prepended to bare module specifiers (e.g. "/tour/modules"). */
+  moduleBase?: string;
+}
+
 export interface WasmExports {
   memory: WebAssembly.Memory;
   deka_compiler_alloc: (size: number) => number;
   deka_compiler_free: (ptr: number, size: number) => void;
+  /**
+   * Compile a single DekaScript file.
+   *
+   * The sixth argument is a JSON options blob: `{ "mode": "deka", "moduleBase": "..." }`.
+   * ABI version 2 replaced the plain mode string with this options object.
+   */
   deka_compiler_compile: (
     sourcePtr: number,
     sourceLen: number,
     filenamePtr: number,
     filenameLen: number,
-    modePtr: number,
-    modeLen: number
+    optionsPtr: number,
+    optionsLen: number
   ) => number;
   deka_compiler_format_js: (sourcePtr: number, sourceLen: number) => number;
   deka_compiler_format_ds: (sourcePtr: number, sourceLen: number) => number;
@@ -171,11 +182,12 @@ export function resetDekaCompilerCacheForTests() {
 
 export async function compileDeka(
   source: string,
-  filename: string
+  filename: string,
+  options: CompileOptions = {}
 ): Promise<CompileResult> {
   try {
     const compiler = await getDekaCompiler();
-    return compileWithDekaAbi(compiler, source, filename);
+    return compileWithDekaAbi(compiler, source, filename, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: message, warnings: [], diagnostics: [toDiagnostic(message)] };
@@ -186,7 +198,8 @@ export async function compileDeka(
 export async function compileDekaWithWasm(
   source: string,
   filename: string,
-  wasmUrl: string
+  wasmUrl: string,
+  options: CompileOptions = {}
 ): Promise<CompileResult> {
   try {
     const response = await fetch(wasmUrl);
@@ -194,7 +207,7 @@ export async function compileDekaWithWasm(
     const bytes = await response.arrayBuffer();
     const wasmModule = await WebAssembly.compile(bytes);
     const instance = await WebAssembly.instantiate(wasmModule, {});
-    return compileWithDekaAbi({ exports: instance.exports as unknown as WasmExports }, source, filename);
+    return compileWithDekaAbi({ exports: instance.exports as unknown as WasmExports }, source, filename, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: message, warnings: [], diagnostics: [toDiagnostic(message)] };
@@ -280,7 +293,8 @@ function formatWithDekaAbi(
 function compileWithDekaAbi(
   compiler: WasmCompiler,
   source: string,
-  filename: string
+  filename: string,
+  options: CompileOptions = {}
 ): CompileResult {
   const exports = compiler.exports;
   const allocate = exports.deka_compiler_alloc;
@@ -288,24 +302,25 @@ function compileWithDekaAbi(
 
   const sourceBytes = textEncoder.encode(source);
   const filenameBytes = textEncoder.encode(filename);
-  const modeBytes = textEncoder.encode('deka');
+  const optionsJson = JSON.stringify({ mode: 'deka', moduleBase: options.moduleBase });
+  const optionsBytes = textEncoder.encode(optionsJson);
 
   const sourcePtr = allocate(sourceBytes.length);
   const filenamePtr = allocate(filenameBytes.length);
-  const modePtr = allocate(modeBytes.length);
+  const optionsPtr = allocate(optionsBytes.length);
 
   const memory = new Uint8Array(exports.memory.buffer);
   memory.set(sourceBytes, sourcePtr);
   memory.set(filenameBytes, filenamePtr);
-  memory.set(modeBytes, modePtr);
+  memory.set(optionsBytes, optionsPtr);
 
   const resultPtr = exports.deka_compiler_compile(
     sourcePtr,
     sourceBytes.length,
     filenamePtr,
     filenameBytes.length,
-    modePtr,
-    modeBytes.length
+    optionsPtr,
+    optionsBytes.length
   );
 
   // WasmResult is { ptr: u32, len: u32 } in little-endian.
@@ -332,7 +347,7 @@ function compileWithDekaAbi(
   free(resultPtr, 8 + jsonLen);
   free(sourcePtr, sourceBytes.length);
   free(filenamePtr, filenameBytes.length);
-  free(modePtr, modeBytes.length);
+  free(optionsPtr, optionsBytes.length);
 
   const diagnostics = normalizeDiagnostics(parsed.diagnostics);
   const error = parsed.error ?? diagnostics.find((diagnostic) => diagnostic.severity === 'error')?.message;
@@ -351,11 +366,7 @@ function stripModuleMetadata(jsCode: string): string {
     .replace(/^export const \w+ = [^;]+;\n?/gm, '')
     .replace(/^export \{[\s\S]*?\};\n?/gm, '')
     .replace(/^export async function \w+[\s\S]*$/m, '')
-    .replace(/^import .*component\/core.*;\n?/m, '')
-    .replace(
-      /^import[ \t]+\{[ \t]*echo[ \t]*\}[ \t]+from[ \t]+["']io["'];?[ \t]*$/m,
-      'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };\n'
-    );
+    .replace(/^import .*component\/core.*;\n?/m, '');
 }
 
 /**
