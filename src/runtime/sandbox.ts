@@ -965,7 +965,7 @@ self.onmessage = async (event) => {
     .replace(/^export async function \\w+[\\s\\S]*$/m, '')
     .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
     .replace(
-      /^import\s+\{\s*echo\s*\}\s+from\s+["']io["'];?\n?/m,
+      /^import[ \t]+\{[ \t]*echo[ \t]*\}[ \t]+from[ \t]+["']io["'];?[ \t]*$/m,
       'const echo = (message) => { __dekaPrint(String(message) + "\\n"); };\n'
     );
 
