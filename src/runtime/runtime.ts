@@ -587,8 +587,16 @@ export async function runDekaJsDirect(
   // would reference them before their const declarations and hit the temporal
   // dead zone in strict mode, so exclude them from global installs.
   const COMPILER_EMITTED_PRELUDE = new Set(['Result', 'Option', 'Ok', 'Err', 'Some', 'None']);
+  // jsx/jsxs are legacy shims for pre-module compiler output that called the
+  // bare globals. Current output imports them from ui/jsx.mjs, which the
+  // import transform turns into an in-IIFE `const { jsx, jsxs } = await
+  // import(...)`; a same-named `globalThis.jsx = jsx;` install line would run
+  // before that const and hit its temporal dead zone. They stay available as
+  // outer function parameters so legacy bare-jsx output still resolves via
+  // the scope chain.
+  const LEGACY_JSX_SHIMS = new Set(['jsx', 'jsxs']);
   const installedKeys = allKeys.filter(
-    (key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && !COMPILER_EMITTED_PRELUDE.has(key)
+    (key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && !COMPILER_EMITTED_PRELUDE.has(key) && !LEGACY_JSX_SHIMS.has(key)
   );
   const hostGlobals = globalThis as Record<string, unknown>;
   const previousGlobals = new Map(
