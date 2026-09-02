@@ -72,7 +72,59 @@ declare global {
     monacoLoaded?: boolean;
     monacoLoading?: boolean;
     monacoDocsTheme?: boolean;
+    MonacoEnvironment?: {
+      getWorkerUrl(workerId: string, label: string): string;
+    };
   }
+}
+
+/**
+ * Absolute URL for the monaco assets the consumer serves from
+ * `public/monaco-editor/min/vs` (copied there by `copy-deka-monaco`).
+ *
+ * Root-relative paths like `/monaco-editor/min/vs` only resolve on the main
+ * thread, where `document.baseURI` supplies a base. Monaco forwards the same
+ * string into its workers, and inside `WorkerGlobalScope` there is no document
+ * and no base — `fetch('/monaco-editor/...')` throws `Failed to parse URL`
+ * and the AMD loader retries in a loop (hundreds of thousands of suppressed
+ * console errors per page load). Everything monaco touches must be absolute.
+ */
+export function monacoAssetsBase(): string {
+  return `${window.location.origin}/monaco-editor/min/vs`;
+}
+
+const monacoWorkerPaths: Record<string, string> = {
+  typescript: 'language/typescript/tsWorker.js',
+  javascript: 'language/typescript/tsWorker.js',
+  json: 'language/json/jsonWorker.js',
+  css: 'language/css/cssWorker.js',
+  scss: 'language/css/cssWorker.js',
+  less: 'language/css/cssWorker.js',
+  html: 'language/html/htmlWorker.js',
+  handlebars: 'language/html/htmlWorker.js',
+  razor: 'language/html/htmlWorker.js',
+};
+
+/**
+ * Install `MonacoEnvironment.getWorkerUrl` before monaco loads. It returns a
+ * blob-shim URL: the worker script sets an absolute `baseUrl` for the AMD
+ * loader and then `importScripts()` the absolute worker file URL. Blob URLs
+ * inherit the page origin, so the import is same-origin today and still works
+ * if the assets later move to a separate host.
+ */
+export function installMonacoEnvironment() {
+  if (typeof window === 'undefined' || window.MonacoEnvironment) return;
+  window.MonacoEnvironment = {
+    getWorkerUrl(_workerId: string, label: string) {
+      const relative = monacoWorkerPaths[label] ?? 'editor/editor.worker.js';
+      const workerUrl = `${monacoAssetsBase()}/${relative}`;
+      const bootstrap = [
+        `self.MonacoEnvironment = { baseUrl: ${JSON.stringify(`${monacoAssetsBase()}/`)} };`,
+        `importScripts(${JSON.stringify(workerUrl)});`,
+      ].join('\n');
+      return URL.createObjectURL(new Blob([bootstrap], { type: 'text/javascript' }));
+    },
+  };
 }
 
 export function ensureDocsTheme() {
@@ -163,12 +215,14 @@ export function ensureMonacoLoaded() {
 
   window.monacoLoading = true;
 
+  installMonacoEnvironment();
+
   const loaderScript = document.createElement('script');
-  loaderScript.src = '/monaco-editor/min/vs/loader.js';
+  loaderScript.src = `${monacoAssetsBase()}/loader.js`;
 
   loaderScript.onload = () => {
     window.require.config({
-      paths: { vs: '/monaco-editor/min/vs' }
+      paths: { vs: monacoAssetsBase() }
     });
 
     window.require(['vs/editor/editor.main'], () => {
