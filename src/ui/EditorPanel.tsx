@@ -248,7 +248,7 @@ export function EditorPanel({
     <div className="flex h-full flex-col border-b border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>deka</span>
+          <span>dsc</span>
           {compiler ? (
             <a
               href="https://deka.gg/install"
