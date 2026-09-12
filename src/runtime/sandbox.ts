@@ -845,17 +845,6 @@ function createGlobals(options) {
     return hostFetch(input, init).then(resultOk, resultErr);
   }
 
-  const safeJSON = {
-    parse: function(text) {
-      try {
-        return resultOk(hostJSON.parse(text));
-      } catch (error) {
-        return resultErr(error);
-      }
-    },
-    stringify: hostJSON.stringify,
-  };
-
   function wrapTimer(timer) {
     return function(handler, delay, ...args) {
       const wrapped = typeof handler === 'function'
@@ -922,11 +911,12 @@ function createGlobals(options) {
     unsafe: unsafeGlobals,
 
     fetch: safeFetch,
-    JSON: safeJSON,
-    URL: wrapConstructorResult(hostURL),
+    // Emitted unsafe blocks own Result wrapping; these globals must stay raw.
+    JSON: hostJSON,
+    URL: hostURL,
     URLSearchParams: wrapConstructorResult(hostURLSearchParams),
-    TextEncoder: wrapConstructorResult(hostTextEncoder),
-    TextDecoder: wrapConstructorResult(hostTextDecoder),
+    TextEncoder: hostTextEncoder,
+    TextDecoder: hostTextDecoder,
     Blob: wrapConstructorResult(hostBlob),
     FormData: wrapConstructorResult(hostFormData),
     Headers: wrapConstructorResult(hostHeaders),
