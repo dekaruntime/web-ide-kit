@@ -415,9 +415,9 @@ function transformStaticImportsToDynamic(jsCode: string): string {
 
 function stripModuleMetadata(jsCode: string): string {
   return jsCode
-    .replace(/^export const \w+ = [^;]+;\n?/gm, '')
+    .replace(/^export (?=const\b)/gm, '')
     .replace(/^export \{[\s\S]*?\};\n?/gm, '')
-    .replace(/^export async function \w+[\s\S]*$/m, '')
+    .replace(/^export (?=async function\b)/gm, '')
     .replace(/^import .*component\/core.*;\n?/m, '');
 }
 
@@ -550,6 +550,13 @@ export function formatRawJs(
   return postProcess(kept.join('\n'));
 }
 
+export interface RunOptions {
+  cwd?: string;
+  env?: Record<string, string>;
+  /** Explicit environment capability grant; defaults to false, even when env/cwd are supplied. */
+  envGranted?: boolean;
+}
+
 /**
  * Execute compiled DekaScript JS in a sandboxed function scope.
  *
@@ -561,7 +568,7 @@ export function formatRawJs(
  */
 export async function runDekaJsDirect(
   jsCode: string,
-  options: { cwd?: string; env?: Record<string, string> } = {}
+  options: RunOptions = {}
 ): Promise<RunResult> {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -571,6 +578,7 @@ export async function runDekaJsDirect(
     stderr: { write: (value: string) => stderr.push(value) },
     cwd: options.cwd,
     env: options.env,
+    envGranted: options.envGranted,
     fs: new VirtualFs(),
   });
 
@@ -599,6 +607,7 @@ export async function runDekaJsDirect(
     (key) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !READ_ONLY_GLOBALS.has(key) && !COMPILER_EMITTED_PRELUDE.has(key) && !LEGACY_JSX_SHIMS.has(key)
   );
   const hostGlobals = globalThis as Record<string, unknown>;
+  const previousProcess = Object.getOwnPropertyDescriptor(hostGlobals, 'process');
   const previousGlobals = new Map(
     installedKeys.map((key) => [key, { exists: key in hostGlobals, value: hostGlobals[key] }])
   );
@@ -608,6 +617,8 @@ export async function runDekaJsDirect(
   (globalThis as any).__dekaCurrentResponse = undefined;
 
   try {
+    // A Node/Bun host may already expose process. No grant must hide it too.
+    if (options.envGranted !== true) delete hostGlobals.process;
     const globalInstalls = installedKeys
       .filter((key) => key !== 'deka')
       .map((key) => `globalThis.${key} = ${key};`)
@@ -652,6 +663,11 @@ export async function runDekaJsDirect(
         delete hostGlobals[key];
       }
     }
+    if (previousProcess) {
+      Object.defineProperty(hostGlobals, 'process', previousProcess);
+    } else {
+      delete hostGlobals.process;
+    }
   }
 }
 
@@ -665,12 +681,13 @@ export async function runDekaJsDirect(
  */
 export async function runDekaJs(
   jsCode: string,
-  options: { cwd?: string; env?: Record<string, string> } = {}
+  options: RunOptions = {}
 ): Promise<SandboxRunResult> {
   const sandbox = getSharedSandbox();
   return sandbox.run(jsCode, {
     cwd: options.cwd ?? '/tour',
     env: options.env ?? {},
+    envGranted: options.envGranted,
     fs: { files: {}, dirs: ['/'] },
   });
 }

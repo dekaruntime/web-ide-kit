@@ -1,28 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { runDekaJsDirect, type RunResult } from '../src/runtime/runtime';
+import { runDekaJsDirect } from '../src/runtime/runtime';
 
-async function runWorker(jsCode: string): Promise<RunResult> {
-  const worker = new Worker(new URL('./fixtures/runtime-worker.ts', import.meta.url).href);
-  try {
-    return await new Promise<RunResult>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Worker timed out')), 4000);
-      worker.onerror = (event) => {
-        clearTimeout(timeout);
-        reject(new Error(event.message));
-      };
-      worker.onmessage = ({ data }) => {
-        if (data.ready) {
-          worker.postMessage({ id: 1, jsCode });
-        } else {
-          clearTimeout(timeout);
-          resolve(data);
-        }
-      };
-    });
-  } finally {
-    worker.terminate();
-  }
-}
+import { runWorker } from './helpers/run-worker';
 
 // Reduced emitted-JS shapes from deka#904's 2026-09-12 evidence table.
 // The compiler owns the branded Result boundary around raw host calls.
