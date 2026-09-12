@@ -5,6 +5,8 @@ export interface GlobalsOptions {
   stderr: { write(value: string): void };
   cwd?: string;
   env?: Record<string, string>;
+  /** Install process only when the caller grants environment access. Defaults to false. */
+  envGranted?: boolean;
   fs?: VirtualFs;
 }
 
@@ -937,10 +939,7 @@ export function createGlobals(options: GlobalsOptions): Record<string, unknown> 
       error: (...args: unknown[]) => stderr.write(format(args) + '\n'),
     },
 
-    process: {
-      env,
-      cwd: () => cwd,
-    },
+    ...(options.envGranted === true ? { process: { env, cwd: () => cwd } } : {}),
 
     __dekaFs: {
       readFile: (path: string) => fs.readFile(path),

@@ -1,4 +1,4 @@
-import type { RunResult } from './runtime';
+import type { RunOptions, RunResult } from './runtime';
 
 export interface SandboxRunResult extends RunResult {
   html?: string;
@@ -884,10 +884,7 @@ function createGlobals(options) {
       error: (...args) => stderr.write(format(args) + '\\n'),
     },
 
-    process: {
-      env,
-      cwd: () => cwd,
-    },
+    ...(options.envGranted === true ? { process: { env, cwd: () => cwd } } : {}),
 
     __dekaFs: {
       readFile: (path) => fs.readFile(path),
@@ -986,19 +983,22 @@ function transformStaticImportsToDynamic(jsCode) {
     .join('\\n');
 }
 
+function stripModuleMetadata(jsCode) {
+  return jsCode
+    .replace(/^export (?=const\\b)/gm, '')
+    .replace(/^export \\{[\\s\\S]*?\\};\\n?/gm, '')
+    .replace(/^export (?=async function\\b)/gm, '')
+    .replace(/^import .*component\\/core.*;\\n?/m, '');
+}
+
 self.onmessage = async (event) => {
-  const { id, jsCode, cwd, env, fs } = event.data || {};
+  const { id, jsCode, cwd, env, envGranted, fs } = event.data || {};
   self.__dekaStdout = [];
   self.__dekaStderr = [];
 
-  const executable = transformStaticImportsToDynamic(
-    String(jsCode)
-      .replace(/^export const \\w+ = [^;]+;\\n?/gm, '')
-      .replace(/^export async function \\w+[\\s\\S]*$/m, '')
-      .replace(new RegExp('^import .*component/core.*;\\n?', 'm'), '')
-  );
+  const executable = transformStaticImportsToDynamic(stripModuleMetadata(String(jsCode)));
 
-  const globals = createGlobals({ cwd, env, fs });
+  const globals = createGlobals({ cwd, env, envGranted, fs });
   const allKeys = Object.keys(globals);
   const values = Object.values(globals);
   const READ_ONLY_GLOBALS = new Set(['crypto']);
@@ -1036,6 +1036,8 @@ self.onmessage = async (event) => {
   }
 
   try {
+    // Remove a previous run's grant (and any Node/Bun host process).
+    if (envGranted !== true) delete globalThis.process;
     // Install deka outside the async IIFE. The latest compiler emits a
     // const deka = globalThis.deka = {...} prelude that merges with the
     // host-provided deka.ui, so globalThis.deka must already be set before
@@ -1084,7 +1086,7 @@ export class DekaSandbox {
 
   run(
     jsCode: string,
-    options: { cwd?: string; env?: Record<string, string>; fs?: { files: Record<string, string>; dirs: string[] } } = {}
+    options: RunOptions & { fs?: { files: Record<string, string>; dirs: string[] } } = {}
   ): Promise<SandboxRunResult> {
     const id = `run-${++this.idCounter}-${Date.now()}`;
     return new Promise((resolve, reject) => {
@@ -1100,6 +1102,7 @@ export class DekaSandbox {
         jsCode,
         cwd: options.cwd ?? '/tour',
         env: options.env ?? {},
+        envGranted: options.envGranted,
         fs: options.fs ?? { files: {}, dirs: ['/'] },
       });
     });

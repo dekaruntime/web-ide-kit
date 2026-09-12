@@ -4,6 +4,7 @@ export {
   type CompilerDiagnostic,
   type CompileResult,
   type RunResult,
+  type RunOptions,
   type SandboxRunResult,
   normalizeDiagnostics,
   compileDeka,

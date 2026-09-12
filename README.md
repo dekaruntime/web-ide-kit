@@ -27,6 +27,23 @@ import { setCompilerArtifactPath } from '@dekaruntime/web-ide-kit/runtime';
 setCompilerArtifactPath('/tour/deka-compiler-artifact.json');
 ```
 
+### Environment capability
+
+`runDekaJs`, `runDekaJsDirect`, and `DekaSandbox.run` leave `process` uninstalled
+by default. Passing `cwd` or `env` values does not grant access. Hosts that have
+approved an environment capability must pass `envGranted: true`:
+
+```ts
+import { runDekaJs } from '@dekaruntime/web-ide-kit/runtime';
+await runDekaJs(compiledJs, {
+  envGranted: true,
+  cwd: '/tour',
+  env: { EXAMPLE: 'value' },
+});
+```
+
+The grant exposes only the supplied environment and virtual working directory.
+
 ### LSP worker path
 
 ```ts
