@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "copy-monaco": "node bin/copy-monaco-assets.mjs",
-    "test": "bun check-worker.mjs",
+    "test": "bun check-worker.mjs && bun test",
     "prepublishOnly": "bun run build"
   },
   "peerDependencies": {

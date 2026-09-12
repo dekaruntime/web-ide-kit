@@ -925,17 +925,6 @@ export function createGlobals(options: GlobalsOptions): Record<string, unknown> 
     }
   };
 
-  const safeJSON = {
-    parse: (text: string): { ok: true; value: unknown } | { ok: false; error: unknown } => {
-      try {
-        return ok(hostJSON.parse(text));
-      } catch (error) {
-        return err(error);
-      }
-    },
-    stringify: hostJSON.stringify.bind(hostJSON),
-  };
-
   return {
     __dekaPrint: (value: unknown) => {
       stdout.write(String(value));
@@ -975,11 +964,12 @@ export function createGlobals(options: GlobalsOptions): Record<string, unknown> 
     unsafe: unsafeGlobals,
 
     fetch: safeFetch,
-    JSON: safeJSON,
-    URL: wrapConstructorResult(hostURL),
+    // Emitted unsafe blocks own Result wrapping; these globals must stay raw.
+    JSON: hostJSON,
+    URL: hostURL,
     URLSearchParams: wrapConstructorResult(hostURLSearchParams),
-    TextEncoder: wrapConstructorResult(hostTextEncoder),
-    TextDecoder: wrapConstructorResult(hostTextDecoder),
+    TextEncoder: hostTextEncoder,
+    TextDecoder: hostTextDecoder,
     Blob: wrapConstructorResult(hostBlob),
     FormData: wrapConstructorResult(hostFormData),
     Headers: wrapConstructorResult(hostHeaders),
