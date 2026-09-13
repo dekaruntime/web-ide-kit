@@ -84,3 +84,16 @@ test('runDekaJs forwards grants through the public sandbox API', async () => {
     terminateSharedSandbox();
   }
 });
+
+// wik#13: plain `export function` (what DS `export fn` emits) must strip in
+// both paths — the async-only lookahead let it reach the Worker as a syntax
+// error ("Unexpected token 'export'", live on deka.gg/tour).
+for (const [label, run] of [['main runtime', runDekaJsDirect], ['Worker', runWorker]] as const) {
+  test(`plain export function strips and stays callable (${label})`, async () => {
+    const result = await run(
+      `export function plain(n) { return n + 1; }\nconsole.log(plain(6));\n`
+    )
+    expect(result.ok).toBe(true)
+    expect(result.stdout.trim()).toBe('7')
+  })
+}

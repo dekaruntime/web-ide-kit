@@ -418,6 +418,7 @@ function stripModuleMetadata(jsCode: string): string {
     .replace(/^export (?=const\b)/gm, '')
     .replace(/^export \{[\s\S]*?\};\n?/gm, '')
     .replace(/^export (?=async function\b)/gm, '')
+    .replace(/^export (?=function\b)/gm, '')
     .replace(/^import .*component\/core.*;\n?/m, '');
 }
 
